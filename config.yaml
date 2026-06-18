@@ -1,0 +1,25 @@
+data:
+  jupiter_price_api: "https://api.jup.ag/price/v2"
+  jupiter_token_api: "https://tokens.jup.ag/tokens?tags=verified"
+  birdeye_ohlcv_api: "https://public-api.birdeye.so/defi/ohlcv"
+  dexscreener_api: "https://api.dexscreener.com/latest/dex"
+  default_quote_token: "So11111111111111111111111111111111111111112"  # SOL
+  cache_dir: ".cache/price_data"
+
+backtest:
+  initial_capital: 10000.0
+  commission_pct: 0.003      # 0.3% Jupiter swap fee
+  slippage_pct: 0.005        # 0.5% default slippage
+  quote_currency: "USDC"
+
+tokens:
+  SOL: "So11111111111111111111111111111111111111112"
+  USDC: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+  BONK: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"
+  JUP: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"
+  RAY: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R"
+  ORCA: "orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE"
+  MSOL: "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So"
+  JITOSOL: "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn"
+  WIF: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm"
+  PYTH: "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3"
