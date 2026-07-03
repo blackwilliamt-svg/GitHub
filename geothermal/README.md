@@ -33,12 +33,19 @@ loss.
 
 ## Running
 
+**Python (full model):**
+
 ```bash
 pip install numpy matplotlib
 python3 geothermal/ground_loop_model.py              # sweep flow, find optimum, plot
 python3 geothermal/ground_loop_model.py --mdot 8     # single case
 python3 geothermal/ground_loop_model.py --years 30 --gradient 32
 ```
+
+**Browser (interactive, no install):** open `geothermal/interactive.html` in any
+browser — the same physics ported to JavaScript, with live sliders for depth,
+gradient, pipe bore, flow rate (with auto-optimization), operating time, and
+up-leg insulation. Fully self-contained single file; works offline.
 
 ## Headline results (defaults: 28 °C/km, 10 years of operation)
 
