@@ -106,6 +106,59 @@ the thermal model including rock depletion. Conventional geothermal is
 ![Well cost vs depth](results/well_cost_vs_depth.png)
 ![LCOE vs depth](results/lcoe_vs_depth.png)
 
+## Hypothetical: mm-wave drilling + sCO₂ loop (`mmwave_co2_model.py`)
+
+```bash
+python3 geothermal/mmwave_co2_model.py
+python3 geothermal/mmwave_co2_model.py --depth-miles 12
+```
+
+A what-if variant combining two frontier technologies:
+
+* **Millimeter-wave drilling** (Quaise/MIT gyrotron concept): conventional
+  rotary to 3.5 km, then mm-wave with cost ~linear in depth ($500 / $1,200 /
+  $3,000 per metre scenarios). The vitrified borehole wall doubles as the
+  conduit, so the down leg needs no steel pipe and the rock touches the
+  working fluid directly.
+* **Supercritical CO₂ working fluid** (CPG-style): the temperature march
+  includes gravitational compression heating (`dT/dz = gTβ/cp` ≈ 8–10 °C/km),
+  the thermosiphon is computed from the actual density profiles of both
+  columns (~144 bar at 8 miles!), and the excess wellhead pressure drives a
+  surface turbo-expander in addition to the steam boiler.
+
+**Findings at 8 miles:**
+
+* CO₂ reaches the bottom at 256 °C (vs 182 °C for water — compression
+  heating) but expansion cooling on the ascent returns it to the surface at
+  only ~118 °C. The 130 bar of excess thermosiphon head yields 0.48 MWe from
+  the expander, but the steam cycle is left with an 88 °C boiler and nearly
+  collapses. **Net 0.65 MWe — less than the 0.91 MWe water baseline.**
+* The LCOE matrix separates the two changes (base cost scenarios):
+
+  |  | Rotary drilling | MM-wave drilling |
+  |---|---|---|
+  | **Water loop** | $7,463/MWh | $1,419/MWh |
+  | **sCO₂ loop** | $10,493/MWh | $1,981/MWh |
+
+  **Millimeter-wave drilling is the technology that matters** (≈5× cheaper
+  electricity); in a deep *closed* loop, CO₂ actually hurts, because water's
+  thermosiphon is already free circulation and water's high heat capacity
+  moves more heat per kg. CO₂'s advantages are strongest in *open* (aquifer)
+  systems and shallower wells — not here.
+* With linear drilling cost, depth keeps paying: at 12 miles the combined
+  system reaches **$771–1,391/MWh** — a ~10× improvement over the baseline,
+  but still ~10× above conventional geothermal. The remaining gap is the
+  single-loop thermal bottleneck: one borehole pair simply cannot harvest
+  enough rock. Multilateral loops sharing the wells are the obvious next
+  lever.
+
+![CO2 vs water profile](results/co2_temperature_profile.png)
+![mm-wave LCOE](results/mmwave_lcoe_vs_depth.png)
+
+CO₂ properties are representative constants (ρ₀ 700 kg/m³, β 3×10⁻³/K,
+cp 1.25 kJ/kg·K); a real design study would use a Span–Wagner equation of
+state, especially near the critical point.
+
 ## Key limitations
 
 * Loop fluid treated as constant-property pressurized liquid water (at
