@@ -190,6 +190,22 @@
   svg .axis-title { font-size: 10.5px; letter-spacing: 0.06em; }
   svg .dlabel { font-size: 11px; font-weight: 600; }
 
+  .card.econ { grid-column: 1 / -1; }
+  .etable { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .etable th {
+    text-align: left; font-weight: 600; color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 4px 10px 6px 0; border-bottom: 1px solid var(--grid);
+  }
+  .etable td { padding: 7px 10px 7px 0; border-bottom: 1px solid var(--grid); color: var(--ink-2); }
+  .etable td.num {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600;
+  }
+  .etable tr:last-child td { border-bottom: none; }
+  .e-note { font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+
   footer.note { margin-top: 22px; font-size: 12.5px; color: var(--muted); max-width: 78ch; }
   footer.note code {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -312,6 +328,21 @@
             <li><span class="swatch" style="background:var(--cold)"></span>Net electric</li>
           </ul>
           <div class="plot" id="plot-time"></div>
+        </div>
+
+        <div class="card econ">
+          <h3>Drilling cost &amp; economics</h3>
+          <p class="c-sub">Two boreholes to loop depth · Lukawski well-cost curve (2026$) under three
+          drilling-cost scenarios · 30-year discounted LCOE at 7&nbsp;% real, 95&nbsp;% availability.</p>
+          <div style="overflow-x:auto">
+            <table class="etable">
+              <thead>
+                <tr><th>Scenario</th><th>Per well</th><th>Total capex</th><th>LCOE</th></tr>
+              </thead>
+              <tbody id="econ-rows"></tbody>
+            </table>
+          </div>
+          <p class="e-note" id="econ-note"></p>
         </div>
       </section>
 
@@ -833,6 +864,45 @@ function update() {
     const r = runCase(pt, mdot, 160);
     tx.push(yr); tq.push(r.plant.q / 1e6); tw.push(r.plant.wNet / 1e6);
   }
+  /* economics: yearly energy with depletion, then scenario costs & LCOE */
+  const DISC_R = 0.07, LIFE = 30, AVAIL = 0.95;
+  const SCEN = [
+    ["Optimistic — geothermal learning curve", 1.0],
+    ["Base — ultra-deep engineering premium", 3.0],
+    ["Pessimistic — KTB research-well actuals", 14.5],
+  ];
+  const lukawski = d => Math.max(1.72e-7 * d * d + 2.3e-3 * d - 0.62, 0.1) * 1e6 * 1.40;
+  let pvE = 0, discSum = 0;
+  for (let y = 1; y <= LIFE; y++) {
+    const pt = Object.assign({}, p, { tOp: (y - 0.5) * YEAR });
+    const eMwh = Math.max(runCase(pt, mdot, 160).plant.wNet, 0) / 1e6 * 8766 * AVAIL;
+    const df = Math.pow(1 + DISC_R, -y);
+    pvE += eMwh * df; discSum += df;
+  }
+  const netKw = Math.max(plant.wNet, 0) / 1e3;
+  const plantCost = Math.max(1.5e6, 3500 * netKw);
+  const money = x => x >= 1e9 ? "$" + fmt(x / 1e9, 2) + "B" : "$" + fmt(x / 1e6, 0) + "M";
+  let rowsHtml = "";
+  for (const [label, mult] of SCEN) {
+    const well = lukawski(p.depth) * mult;
+    const wells = 2 * well;
+    const pipe = p.depth * 900, conn = 15e6;
+    const direct = wells + pipe + conn + plantCost;
+    const total = direct * 1.12 + 0.25 * (wells + pipe + conn);
+    const om = 0.005 * (wells + pipe + conn) + 0.025 * plantCost + 250e3;
+    const lcoeV = pvE > 0 ? (total + om * discSum) / pvE : Infinity;
+    rowsHtml += `<tr><td>${label}</td><td class="num">${money(well)}</td>` +
+      `<td class="num">${money(total)}</td>` +
+      `<td class="num">${isFinite(lcoeV) ? "$" + fmt(lcoeV, 0) + "/MWh" : "—"}</td></tr>`;
+  }
+  $("econ-rows").innerHTML = rowsHtml;
+  const capMax = Math.max(0, 80 * pvE - (0.025 * plantCost + 250e3) * discSum);
+  $("econ-note").textContent = pvE > 0
+    ? "Break-even against conventional geothermal ($80/MWh) allows " +
+      money(capMax) + " total capital — about " + money(capMax / 2) +
+      " per well. Utility solar is ~$40/MWh."
+    : "No net generation at these settings, so no LCOE.";
+
   drawChart($("plot-time"), [
     { name: "Thermal", color: "var(--hot)", xs: tx, ys: tq },
     { name: "Net electric", color: "var(--cold)", xs: tx, ys: tw },

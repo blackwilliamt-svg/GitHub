@@ -65,6 +65,47 @@ up-leg insulation. Fully self-contained single file; works offline.
 ![Power vs flow](results/power_vs_flow.png)
 ![Power vs time](results/power_vs_time.png)
 
+## Drilling cost & economics (`drilling_cost_model.py`)
+
+```bash
+python3 geothermal/drilling_cost_model.py                 # 8-mile report + depth sweep
+python3 geothermal/drilling_cost_model.py --depth-miles 5
+```
+
+Couples a well-cost model to the thermal model to compute capital cost and
+LCOE. Drilling cost uses the Lukawski et al. (2014) geothermal well-cost
+correlation (inflated to 2026$) under three scenarios, because a 12.9 km
+production well is deeper than anything ever drilled (deepest borehole:
+Kola SG-3, 12.26 km, 19 years; deepest with public costs: KTB, 9.1 km,
+≈$700M in 2026$):
+
+| Scenario | Basis | Per well (12.9 km) | Total capex | LCOE |
+|---|---|---|---|---|
+| Optimistic | Geothermal learning curve holds to 12.9 km | $81M | $261M | **$2,800/MWh** |
+| Base | 3× ultra-deep engineering premium | $242M | $702M | **$7,500/MWh** |
+| Pessimistic | Anchored to KTB research-well actuals | $1.17B | $3.24B | **$34,000/MWh** |
+
+(30-year life, 7 % real discount rate, 95 % availability, yearly energy from
+the thermal model including rock depletion. Conventional geothermal is
+~$80/MWh; utility solar ~$40/MWh.)
+
+**Findings:**
+
+* Drilling dominates everything: the two wells are ~69 % of capital in the
+  base case; the steam plant is 0.5 %.
+* Within 2–10 miles, **deeper always wins on LCOE** — power grows faster
+  than the quadratic cost curve — but even the best case stays ~25× above
+  grid parity (see `results/lcoe_vs_depth.png`).
+* **Break-even**: to compete at $80/MWh, the *entire project* could cost at
+  most ~$4M — roughly $2M per well vs $81M under the optimistic curve. A
+  single 8-mile loop producing ~0.9 MWe cannot carry ultra-deep drilling
+  costs; the concept needs order-of-magnitude cheaper drilling (e.g.
+  energy-beam/millimeter-wave concepts) or many loops (multilaterals)
+  sharing one well pair.
+
+![Well cost vs depth](results/well_cost_vs_depth.png)
+![LCOE vs depth](results/lcoe_vs_depth.png)
+
 ## Key limitations
 
 * Loop fluid treated as constant-property pressurized liquid water (at
