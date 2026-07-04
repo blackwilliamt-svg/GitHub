@@ -353,7 +353,9 @@
         pinch-limited saturated-steam Rankine cycle from an embedded steam table. Same model as
         <code>geothermal/ground_loop_model.py</code>. Loop fluid is constant-property pressurized
         water; the two legs are assumed not to interfere through the rock. A heat-transfer model —
-        not a drilling plan.</p>
+        not a drilling plan. Note: the steam plant here is idealized — it ignores the boiler's
+        internal pinch, overstating power ~3×; <code>geothermal/co2_power_cycle_model.py</code>
+        models pinch-feasible steam and a transcritical CO₂ cycle that avoids the problem.</p>
       </footer>
     </main>
   </div>

@@ -159,6 +159,55 @@ CO₂ properties are representative constants (ρ₀ 700 kg/m³, β 3×10⁻³/K
 cp 1.25 kJ/kg·K); a real design study would use a Span–Wagner equation of
 state, especially near the critical point.
 
+## Water in the hole, CO₂ in the heat exchanger (`co2_power_cycle_model.py`)
+
+```bash
+python3 geothermal/co2_power_cycle_model.py
+```
+
+The best-of-both configuration: keep water downhole (free thermosiphon, high
+heat capacity) and replace the surface steam boiler with a **transcritical
+CO₂ power cycle** fed through the heat exchanger.
+
+**This model surfaced a real flaw in the baseline**: the loop delivers
+*sensible* heat (water cooling 186 → 50 °C), but a steam boiler absorbs most
+of its heat at one temperature. Checking the baseline boiler against its own
+loop stream shows the internal evaporator pinch is badly violated — the loop
+water is at ~79 °C where a 168 °C boiler needs ≥ 178 °C. The idealized steam
+numbers in `ground_loop_model.py` are therefore **~3× optimistic**; treat
+them as an upper bound.
+
+Three surface plants compared on the same 8-mile water loop:
+
+| Plant | T_return | Net power | LCOE (mm-wave base) |
+|---|---|---|---|
+| Steam, idealized (pinch violated) | 50 °C | ~~0.91 MWe~~ | — (infeasible) |
+| Steam, pinch-feasible single-pressure | 116 °C | 0.31 MWe | $4,094/MWh |
+| **Transcritical CO₂ cycle in the HX** | **50 °C** | **0.51 MWe** | **$2,492/MWh** |
+
+Why CO₂ wins: supercritical CO₂ at ~200 bar heats up with a temperature
+**glide** that parallels the water's cooling curve — no internal pinch — so
+it can use the heat all the way down to 50 °C, while the feasible steam
+boiler (forced down to a 112 °C boiling point) strands everything below
+116 °C. Result: **1.65× the power and ~40 % lower LCOE**, with the CO₂
+turbomachinery ~10× smaller than a low-pressure steam turbine ($2,500/kW vs
+$3,500/kW assumed). The advantage grows at shallower depths where steam
+collapses entirely (see `results/plant_comparison_vs_temp.png`). The CO₂
+cycle is modeled by exergy with a second-law efficiency of 0.50 (literature
+band 0.40–0.55, carried through the results as an uncertainty band) rather
+than a fabricated CO₂ equation of state.
+
+Ranking of the configurations explored so far (8 miles, base costs):
+
+1. Water loop + CO₂ surface cycle + mm-wave drilling — **$2,492/MWh**
+2. Water loop + feasible steam + mm-wave — $4,094/MWh
+3. sCO₂ downhole + steam + mm-wave — $1,981/MWh *(but uses the idealized
+   boiler; feasible-plant correction would raise it)*
+4. Anything with rotary drilling at 8 miles — $13,000–34,000/MWh
+
+![Plant comparison](results/plant_comparison_vs_temp.png)
+![CO2 HX LCOE](results/co2_hx_lcoe_vs_depth.png)
+
 ## Key limitations
 
 * Loop fluid treated as constant-property pressurized liquid water (at
