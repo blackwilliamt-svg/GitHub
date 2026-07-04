@@ -1,0 +1,930 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deep Geothermal Loop Simulator</title>
+<style>
+  :root {
+    --page:        #f9f9f7;
+    --surface:     #fcfcfb;
+    --ink:         #0b0b0b;
+    --ink-2:       #52514e;
+    --muted:       #898781;
+    --grid:        #e1e0d9;
+    --axis:        #c3c2b7;
+    --border:      rgba(11,11,11,0.10);
+    --cold:        #2a78d6;   /* down leg / electric */
+    --hot:         #e34948;   /* up leg / thermal */
+    --ember:       #b4451f;   /* accent — headline only */
+    --good:        #006300;
+    --track:       #e1e0d9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page:    #0d0d0d;
+      --surface: #1a1a19;
+      --ink:     #ffffff;
+      --ink-2:   #c3c2b7;
+      --muted:   #898781;
+      --grid:    #2c2c2a;
+      --axis:    #383835;
+      --border:  rgba(255,255,255,0.10);
+      --cold:    #3987e5;
+      --hot:     #e66767;
+      --ember:   #e87a4e;
+      --good:    #0ca30c;
+      --track:   #383835;
+    }
+  }
+  :root[data-theme="light"] {
+    --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e;
+    --muted: #898781; --grid: #e1e0d9; --axis: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --cold: #2a78d6; --hot: #e34948; --ember: #b4451f; --good: #006300;
+    --track: #e1e0d9;
+  }
+  :root[data-theme="dark"] {
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7;
+    --muted: #898781; --grid: #2c2c2a; --axis: #383835;
+    --border: rgba(255,255,255,0.10);
+    --cold: #3987e5; --hot: #e66767; --ember: #e87a4e; --good: #0ca30c;
+    --track: #383835;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--page);
+    color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 64px; }
+
+  header.top { margin-bottom: 24px; }
+  .eyebrow {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ember); margin: 0 0 6px;
+  }
+  h1 {
+    font-size: clamp(22px, 3.4vw, 30px); font-weight: 650;
+    letter-spacing: -0.015em; margin: 0 0 6px; text-wrap: balance;
+  }
+  .sub { color: var(--ink-2); margin: 0; max-width: 62ch; }
+
+  .layout { display: grid; grid-template-columns: 288px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 880px) { .layout { grid-template-columns: 1fr; } }
+
+  /* ---- control rail -------------------------------------------------- */
+  .rail {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px 18px 8px;
+    position: sticky; top: 16px;
+  }
+  @media (max-width: 880px) { .rail { position: static; } }
+  .rail h2 {
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600; margin: 0 0 14px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .ctl { margin-bottom: 18px; }
+  .ctl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .ctl label { font-size: 13px; color: var(--ink-2); }
+  .ctl output {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px; font-weight: 600; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  input[type="range"] {
+    width: 100%; margin: 8px 0 0; appearance: none; -webkit-appearance: none;
+    height: 4px; border-radius: 2px; background: var(--track); outline-offset: 4px;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    appearance: none; -webkit-appearance: none;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--ink); border: 3px solid var(--surface);
+    box-shadow: 0 0 0 1px var(--border); cursor: pointer;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--ink); border: 3px solid var(--surface);
+    box-shadow: 0 0 0 1px var(--border); cursor: pointer;
+  }
+  input[type="range"]:disabled { opacity: 0.4; }
+  input[type="range"]:focus-visible { outline: 2px solid var(--cold); }
+  .check { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 13px; color: var(--ink-2); }
+  .check input { accent-color: var(--cold); width: 15px; height: 15px; }
+  select {
+    width: 100%; margin-top: 8px; padding: 6px 8px; font: inherit; font-size: 13px;
+    color: var(--ink); background: var(--surface);
+    border: 1px solid var(--border); border-radius: 6px;
+  }
+  .rail-note { font-size: 12px; color: var(--muted); border-top: 1px solid var(--grid); padding: 12px 0 10px; margin: 4px 0 0; }
+
+  /* ---- results ------------------------------------------------------- */
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  @media (max-width: 1020px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
+  .tile {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px 12px; min-width: 0;
+  }
+  .tile .t-label {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 6px;
+  }
+  .tile .t-value { font-size: 26px; font-weight: 650; letter-spacing: -0.01em; line-height: 1.1; }
+  .tile .t-value .unit { font-size: 14px; font-weight: 500; color: var(--ink-2); margin-left: 3px; }
+  .tile.hero .t-value { color: var(--ember); }
+  .tile .t-sub { font-size: 12px; color: var(--ink-2); margin-top: 5px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 12px; font-weight: 600; color: var(--good); margin-top: 5px;
+  }
+
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 1020px) { .charts { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 16px 8px; min-width: 0;
+  }
+  .card.tall { grid-row: span 2; }
+  @media (max-width: 1020px) { .card.tall { grid-row: auto; } }
+  .card h3 { font-size: 14px; font-weight: 650; margin: 0 0 2px; }
+  .card .c-sub { font-size: 12px; color: var(--ink-2); margin: 0 0 8px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 0 0 6px; padding: 0; list-style: none; }
+  .legend li { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); }
+  .swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+  .swatch.dashed {
+    height: 0; border-top: 2px dashed var(--muted); background: none; border-radius: 0;
+  }
+  .plot { position: relative; }
+  .plot svg { display: block; width: 100%; height: auto; }
+
+  .tip {
+    position: absolute; pointer-events: none; z-index: 5;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+    padding: 8px 10px; font-size: 12px; line-height: 1.45; white-space: nowrap;
+    display: none;
+  }
+  .tip .tip-h {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px; color: var(--muted); margin-bottom: 3px;
+  }
+  .tip .row { display: flex; align-items: center; gap: 6px; }
+  .tip .row b {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-weight: 600; margin-left: auto; padding-left: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .tip .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  svg text {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 10.5px; fill: var(--muted);
+  }
+  svg .axis-title { font-size: 10.5px; letter-spacing: 0.06em; }
+  svg .dlabel { font-size: 11px; font-weight: 600; }
+
+  .card.econ { grid-column: 1 / -1; }
+  .etable { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .etable th {
+    text-align: left; font-weight: 600; color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 4px 10px 6px 0; border-bottom: 1px solid var(--grid);
+  }
+  .etable td { padding: 7px 10px 7px 0; border-bottom: 1px solid var(--grid); color: var(--ink-2); }
+  .etable td.num {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600;
+  }
+  .etable tr:last-child td { border-bottom: none; }
+  .e-note { font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+
+  footer.note { margin-top: 22px; font-size: 12.5px; color: var(--muted); max-width: 78ch; }
+  footer.note code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .tile .t-value { transition: color 0.2s; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <p class="eyebrow">Ground heat-transfer model</p>
+    <h1>Deep Geothermal Loop Simulator</h1>
+    <p class="sub">A closed loop of steel pipe carries water 8 miles down into hot rock and back.
+    The bare down-leg absorbs heat, the insulated up-leg keeps it, and a surface boiler raises
+    steam for a turbine. Drag the sliders — everything recomputes live.</p>
+  </header>
+
+  <div class="layout">
+    <aside class="rail" aria-label="Model parameters">
+      <h2>Parameters</h2>
+
+      <div class="ctl">
+        <div class="ctl-head"><label for="depth">Loop depth</label><output id="depth-out"></output></div>
+        <input type="range" id="depth" min="1" max="10" step="0.25" value="8">
+      </div>
+
+      <div class="ctl">
+        <div class="ctl-head"><label for="grad">Geothermal gradient</label><output id="grad-out"></output></div>
+        <input type="range" id="grad" min="15" max="45" step="1" value="28">
+      </div>
+
+      <div class="ctl">
+        <div class="ctl-head"><label for="bore">Pipe bore</label><output id="bore-out"></output></div>
+        <input type="range" id="bore" min="4" max="16" step="1" value="8">
+      </div>
+
+      <div class="ctl">
+        <div class="ctl-head"><label for="mdot">Loop mass flow</label><output id="mdot-out"></output></div>
+        <input type="range" id="mdot" min="1" max="60" step="0.5" value="8" disabled>
+        <div class="check">
+          <input type="checkbox" id="auto" checked>
+          <label for="auto">Auto-optimize for net power</label>
+        </div>
+      </div>
+
+      <div class="ctl">
+        <div class="ctl-head"><label for="years">Years of operation</label><output id="years-out"></output></div>
+        <input type="range" id="years" min="0" max="100" step="any" value="67">
+      </div>
+
+      <div class="ctl">
+        <div class="ctl-head"><label for="ins">Up-leg insulation</label></div>
+        <select id="ins">
+          <option value="0.02" selected>Vacuum-insulated tubing (k = 0.02)</option>
+          <option value="0.014">Aerogel (k = 0.014)</option>
+          <option value="0.03">Polyurethane (k = 0.03)</option>
+          <option value="0.045">Mineral wool (k = 0.045)</option>
+          <option value="none">None — bare steel both legs</option>
+        </select>
+      </div>
+
+      <p class="rail-note">Fixed: 15&nbsp;°C surface, granite-like rock (k&nbsp;=&nbsp;3&nbsp;W/m·K),
+      40&nbsp;°C condenser, 80&nbsp;% turbine isentropic efficiency, sch-40 steel wall.</p>
+    </aside>
+
+    <main>
+      <section class="tiles" aria-label="Key results">
+        <div class="tile hero">
+          <p class="t-label">Net electric power</p>
+          <div class="t-value"><span id="v-net">–</span><span class="unit">MWe</span></div>
+          <div class="t-sub" id="v-eta"></div>
+        </div>
+        <div class="tile">
+          <p class="t-label">Fluid returns at</p>
+          <div class="t-value"><span id="v-ttop">–</span><span class="unit">°C</span></div>
+          <div class="t-sub" id="v-tbot"></div>
+        </div>
+        <div class="tile">
+          <p class="t-label">Heat to boiler</p>
+          <div class="t-value"><span id="v-q">–</span><span class="unit">MWth</span></div>
+          <div class="t-sub" id="v-steam"></div>
+        </div>
+        <div class="tile">
+          <p class="t-label">Circulation</p>
+          <div class="t-value"><span id="v-pump">–</span><span class="unit" id="v-pump-u"></span></div>
+          <div id="v-circ"></div>
+        </div>
+      </section>
+
+      <section class="charts">
+        <div class="card tall">
+          <h3>Temperature vs depth</h3>
+          <p class="c-sub" id="profile-sub"></p>
+          <ul class="legend">
+            <li><span class="swatch dashed"></span>Undisturbed rock</li>
+            <li><span class="swatch" style="background:var(--cold)"></span>Down leg (bare)</li>
+            <li><span class="swatch" style="background:var(--hot)"></span>Up leg (insulated)</li>
+          </ul>
+          <div class="plot" id="plot-profile"></div>
+        </div>
+
+        <div class="card">
+          <h3>Output vs circulation rate</h3>
+          <p class="c-sub">More flow harvests more heat — but returns it colder.</p>
+          <ul class="legend">
+            <li><span class="swatch" style="background:var(--hot)"></span>Thermal to boiler</li>
+            <li><span class="swatch" style="background:var(--cold)"></span>Net electric</li>
+          </ul>
+          <div class="plot" id="plot-flow"></div>
+        </div>
+
+        <div class="card">
+          <h3>Output over 30 years</h3>
+          <p class="c-sub">Rock around the borehole slowly depletes (line-source model).</p>
+          <ul class="legend">
+            <li><span class="swatch" style="background:var(--hot)"></span>Thermal to boiler</li>
+            <li><span class="swatch" style="background:var(--cold)"></span>Net electric</li>
+          </ul>
+          <div class="plot" id="plot-time"></div>
+        </div>
+
+        <div class="card econ">
+          <h3>Drilling cost &amp; economics</h3>
+          <p class="c-sub">Two boreholes to loop depth · Lukawski well-cost curve (2026$) under three
+          drilling-cost scenarios · 30-year discounted LCOE at 7&nbsp;% real, 95&nbsp;% availability.</p>
+          <div style="overflow-x:auto">
+            <table class="etable">
+              <thead>
+                <tr><th>Scenario</th><th>Per well</th><th>Total capex</th><th>LCOE</th></tr>
+              </thead>
+              <tbody id="econ-rows"></tbody>
+            </table>
+          </div>
+          <p class="e-note" id="econ-note"></p>
+        </div>
+      </section>
+
+      <footer class="note">
+        <p>Physics: transient infinite line-source conduction in the rock, series radial resistances
+        (rock · steel wall · insulation · Dittus–Boelter internal convection), exact exponential
+        temperature march along each leg, Haaland friction vs thermosiphon buoyancy, and a
+        pinch-limited saturated-steam Rankine cycle from an embedded steam table. Same model as
+        <code>geothermal/ground_loop_model.py</code>. Loop fluid is constant-property pressurized
+        water; the two legs are assumed not to interfere through the rock. A heat-transfer model —
+        not a drilling plan. Note: the steam plant here is idealized — it ignores the boiler's
+        internal pinch, overstating power ~3×; <code>geothermal/co2_power_cycle_model.py</code>
+        models pinch-feasible steam and a transcritical CO₂ cycle that avoids the problem.</p>
+      </footer>
+    </main>
+  </div>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<script>
+"use strict";
+/* ================= physics (port of ground_loop_model.py) ================= */
+const MILE = 1609.344, INCH = 0.0254, YEAR = 365.25 * 86400, GAMMA = 0.5772156649;
+
+const FIXED = {
+  wall: 0.00818, insTh: 0.05, kSteel: 45, rough: 4.5e-5,
+  kRock: 3.0, rhoRock: 2700, cpRock: 900, tSurf: 15,
+  rho: 1000, cp: 4200, kf: 0.65, mu: 3e-4, beta: 5e-4,
+  tCond: 40, pinchHot: 15, pinchCold: 10, boilMax: 340,
+  etaT: 0.80, etaG: 0.97, etaP: 0.75,
+};
+const tInject = FIXED.tCond + FIXED.pinchCold;
+
+/* Saturated steam table: T[C], Psat[bar], h_f, h_fg [kJ/kg], s_f, s_fg */
+const STEAM = [
+  [ 40, 0.0738,  167.5, 2406.0, 0.5724, 7.6845],
+  [ 60, 0.1994,  251.2, 2358.4, 0.8312, 7.0774],
+  [ 80, 0.4739,  334.9, 2308.8, 1.0753, 6.5359],
+  [100, 1.0140,  419.1, 2256.4, 1.3069, 6.0480],
+  [120, 1.9870,  503.8, 2202.1, 1.5276, 5.6020],
+  [150, 4.7620,  632.3, 2113.7, 1.8420, 4.9960],
+  [180, 10.030,  763.1, 2014.5, 2.1396, 4.4448],
+  [200, 15.550,  852.4, 1939.7, 2.3308, 4.0997],
+  [220, 23.200,  943.6, 1857.4, 2.5178, 3.7683],
+  [250, 39.760, 1085.8, 1715.2, 2.7935, 3.2802],
+  [280, 64.170, 1236.7, 1543.2, 3.0680, 2.7903],
+  [300, 85.880, 1345.0, 1404.6, 3.2552, 2.4507],
+  [320, 112.90, 1462.2, 1238.5, 3.4494, 2.0882],
+  [340, 146.00, 1594.5, 1027.3, 3.6601, 1.6763],
+];
+function satProps(tC) {
+  const t = Math.min(Math.max(tC, STEAM[0][0]), STEAM[STEAM.length - 1][0]);
+  let i = 0;
+  while (i < STEAM.length - 2 && STEAM[i + 1][0] < t) i++;
+  const a = STEAM[i], b = STEAM[i + 1];
+  const f = (t - a[0]) / (b[0] - a[0]);
+  const lerp = k => a[k] + f * (b[k] - a[k]);
+  return {
+    p: Math.exp(Math.log(a[1]) + f * (Math.log(b[1]) - Math.log(a[1]))),
+    hf: lerp(2), hfg: lerp(3), sf: lerp(4), sfg: lerp(5),
+  };
+}
+
+function resistances(p, mdot) {
+  const rIn = p.pipeId / 2, rOut = rIn + FIXED.wall;
+  const area = Math.PI * rIn * rIn;
+  const v = mdot / (FIXED.rho * area);
+  const re = FIXED.rho * v * p.pipeId / FIXED.mu;
+  const pr = FIXED.cp * FIXED.mu / FIXED.kf;
+  const nu = re > 4000 ? 0.023 * Math.pow(re, 0.8) * Math.pow(pr, 0.4) : 4.36;
+  const h = nu * FIXED.kf / p.pipeId;
+  const rConv = 1 / (2 * Math.PI * rIn * h);
+  const rWall = Math.log(rOut / rIn) / (2 * Math.PI * FIXED.kSteel);
+  const alpha = FIXED.kRock / (FIXED.rhoRock * FIXED.cpRock);
+  const rGround = rb => {
+    const fo = Math.max(4 * alpha * Math.max(p.tOp, 3600) / (rb * rb), Math.E);
+    return (Math.log(fo) - GAMMA) / (4 * Math.PI * FIXED.kRock);
+  };
+  let rIns = 0, rbUp = rOut;
+  if (p.insK !== null) {
+    rbUp = rOut + FIXED.insTh;
+    rIns = Math.log(rbUp / rOut) / (2 * Math.PI * p.insK);
+  }
+  return {
+    rDown: rConv + rWall + rGround(rOut),
+    rUp:   rConv + rWall + rIns + rGround(rbUp),
+    re, v, area,
+  };
+}
+
+function marchLeg(p, tIn, z, tg, rTot, mdot, downward) {
+  const tau = mdot * FIXED.cp * rTot;
+  const n = z.length, t = new Array(n);
+  let q = 0, tf = tIn;
+  const idx = i => downward ? i : n - 1 - i;
+  t[idx(0)] = tf;
+  for (let s = 1; s < n; s++) {
+    const i = idx(s), j = idx(s - 1);
+    const dz = Math.abs(z[i] - z[j]);
+    const tgMid = 0.5 * (tg[i] + tg[j]);
+    const tNew = tgMid + (tf - tgMid) * Math.exp(-dz / tau);
+    q += mdot * FIXED.cp * (tNew - tf);
+    tf = tNew; t[i] = tf;
+  }
+  return { t, q };
+}
+
+function solveLoop(p, mdot, nSeg) {
+  const n = (nSeg || 400) + 1;
+  const z = new Array(n), tg = new Array(n);
+  for (let i = 0; i < n; i++) {
+    z[i] = p.depth * i / (n - 1);
+    tg[i] = FIXED.tSurf + p.grad * z[i];
+  }
+  const R = resistances(p, mdot);
+  const down = marchLeg(p, tInject, z, tg, R.rDown, mdot, true);
+  const up = marchLeg(p, down.t[n - 1], z, tg, R.rUp, mdot, false);
+
+  const relR = FIXED.rough / p.pipeId;
+  const f = R.re < 2300 ? 64 / Math.max(R.re, 1)
+    : Math.pow(-1.8 * Math.log10(Math.pow(relR / 3.7, 1.11) + 6.9 / R.re), -2);
+  const dpFric = f * (2 * p.depth) / p.pipeId * 0.5 * FIXED.rho * R.v * R.v;
+  let dtCols = 0;
+  for (let i = 1; i < n; i++) {
+    dtCols += 0.5 * ((up.t[i] - down.t[i]) + (up.t[i - 1] - down.t[i - 1])) * (z[i] - z[i - 1]);
+  }
+  const dpBuoy = FIXED.rho * FIXED.beta * 9.81 * dtCols;
+  const pump = Math.max(0, dpFric - dpBuoy) * mdot / (FIXED.rho * FIXED.etaP);
+
+  return {
+    z, tg, tDown: down.t, tUp: up.t,
+    tBottom: down.t[n - 1], tTop: up.t[0],
+    dpFric, dpBuoy, pump, rDown: R.rDown, rUp: R.rUp,
+  };
+}
+
+function runPlant(p, loop, mdot) {
+  const q = Math.max(0, mdot * FIXED.cp * (loop.tTop - tInject));
+  const tBoil = Math.min(loop.tTop - FIXED.pinchHot, FIXED.boilMax);
+  if (q <= 0 || tBoil <= FIXED.tCond + 5) {
+    return { q, tBoil, pBar: 0, mSteam: 0, wTurb: 0, wNet: -loop.pump, eta: 0 };
+  }
+  const hot = satProps(tBoil), cold = satProps(FIXED.tCond);
+  const h1 = hot.hf + hot.hfg;
+  const mSteam = q / ((h1 - cold.hf) * 1e3);
+  const s1 = hot.sf + hot.sfg;
+  const x2s = (s1 - cold.sf) / cold.sfg;
+  const h2s = cold.hf + x2s * cold.hfg;
+  const h2 = h1 - FIXED.etaT * (h1 - h2s);
+  const wTurb = mSteam * (h1 - h2) * 1e3 * FIXED.etaG;
+  const wFeed = mSteam * 0.001 * (hot.p - cold.p) * 1e5 / FIXED.etaP;
+  const wNet = wTurb - wFeed - loop.pump;
+  return { q, tBoil, pBar: hot.p, mSteam, wTurb, wNet, eta: q > 0 ? wNet / q : 0 };
+}
+
+function runCase(p, mdot, nSeg) {
+  const loop = solveLoop(p, mdot, nSeg);
+  return { loop, plant: runPlant(p, loop, mdot) };
+}
+
+/* ================= UI state ================= */
+const $ = id => document.getElementById(id);
+const els = {
+  depth: $("depth"), grad: $("grad"), bore: $("bore"),
+  mdot: $("mdot"), auto: $("auto"), years: $("years"), ins: $("ins"),
+};
+
+/* years slider is log-scaled: 0..100 -> 0.1..30 years */
+const yearsFromSlider = s => 0.1 * Math.pow(300, s / 100);
+const sliderFromYears = y => 100 * Math.log(y / 0.1) / Math.log(300);
+els.years.value = sliderFromYears(10);
+
+function params() {
+  const insV = els.ins.value;
+  return {
+    depth: +els.depth.value * MILE,
+    grad: +els.grad.value / 1000,
+    pipeId: +els.bore.value * INCH,
+    tOp: yearsFromSlider(+els.years.value) * YEAR,
+    insK: insV === "none" ? null : +insV,
+  };
+}
+
+function optimizeFlow(p) {
+  let best = 1, bestW = -Infinity;
+  for (let m = 1; m <= 60; m += 1) {
+    const w = runCase(p, m, 160).plant.wNet;
+    if (w > bestW) { bestW = w; best = m; }
+  }
+  for (let m = Math.max(1, best - 1); m <= best + 1; m += 0.25) {
+    const w = runCase(p, m, 160).plant.wNet;
+    if (w > bestW) { bestW = w; best = m; }
+  }
+  return best;
+}
+
+/* ================= formatting ================= */
+const fmt = (x, d) => x.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+const fmtTick = x => fmt(x, Math.abs(x) > 0 && Math.abs(x) < 1 ? 1 : 0);
+
+/* ================= charts ================= */
+const PLOT_W = 520;
+function scaleLin(d0, d1, r0, r1) {
+  const f = x => r0 + (x - d0) / (d1 - d0) * (r1 - r0);
+  f.inv = y => d0 + (y - r0) / (r1 - r0) * (d1 - d0);
+  return f;
+}
+function niceTicks(min, max, n) {
+  const span = max - min || 1;
+  const step0 = span / n;
+  const mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => span / s <= n) || mag * 10;
+  const t = [];
+  for (let v = Math.ceil(min / step) * step; v <= max + 1e-9; v += step) t.push(+v.toFixed(10));
+  return t;
+}
+const svgEl = (tag, attrs) => {
+  const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+};
+const pathFrom = pts => pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join("");
+
+const tip = $("tip");
+function showTip(page, x, y, html) {
+  tip.innerHTML = html;
+  tip.style.display = "block";
+  const r = tip.getBoundingClientRect();
+  let left = x + 14, top = y - r.height / 2;
+  if (left + r.width > window.innerWidth - 8) left = x - r.width - 14;
+  tip.style.left = (left + window.scrollX) + "px";
+  tip.style.top = (Math.max(4, top) + window.scrollY) + "px";
+}
+const hideTip = () => { tip.style.display = "none"; };
+
+/*
+ * Generic x-y line chart. series: [{name,color,xs,ys,dash?}]
+ * opts: {h, xLabel, yLabel, xLog, invertY, xUnit, yUnit, annot:{x,y,text}}
+ */
+function drawChart(container, series, opts) {
+  const H = opts.h || 300, W = PLOT_W;
+  const m = { l: 46, r: 14, t: 8, b: 34 };
+  container.innerHTML = "";
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, role: "img" });
+
+  let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+  for (const s of series) for (let i = 0; i < s.xs.length; i++) {
+    const xv = opts.xLog ? Math.log10(s.xs[i]) : s.xs[i];
+    if (xv < xMin) xMin = xv; if (xv > xMax) xMax = xv;
+    if (s.ys[i] < yMin) yMin = s.ys[i]; if (s.ys[i] > yMax) yMax = s.ys[i];
+  }
+  if (opts.yZero) yMin = Math.min(0, yMin);
+  const yPad = (yMax - yMin) * 0.06 || 1;
+  yMax += yPad; if (!opts.yZero) yMin -= yPad;
+
+  const sx = scaleLin(xMin, xMax, m.l, W - m.r);
+  const sy = opts.invertY ? scaleLin(yMin, yMax, m.t, H - m.b)
+                          : scaleLin(yMin, yMax, H - m.b, m.t);
+
+  /* grid + ticks */
+  const yTicks = niceTicks(yMin, yMax, 5);
+  for (const v of yTicks) {
+    const y = sy(v);
+    svg.appendChild(svgEl("line", { x1: m.l, x2: W - m.r, y1: y, y2: y, stroke: "var(--grid)", "stroke-width": 1 }));
+    const lbl = svgEl("text", { x: m.l - 7, y: y + 3.5, "text-anchor": "end" });
+    lbl.textContent = fmtTick(v);
+    svg.appendChild(lbl);
+  }
+  const xTicksRaw = opts.xLog ? opts.xTicks.map(Math.log10) : niceTicks(xMin, xMax, 6);
+  const xTickLbl = opts.xLog ? opts.xTicks : xTicksRaw;
+  xTicksRaw.forEach((v, i) => {
+    const x = sx(v);
+    svg.appendChild(svgEl("line", { x1: x, x2: x, y1: H - m.b, y2: H - m.b + 4, stroke: "var(--axis)", "stroke-width": 1 }));
+    const lbl = svgEl("text", { x, y: H - m.b + 16, "text-anchor": "middle" });
+    lbl.textContent = fmtTick(xTickLbl[i]);
+    svg.appendChild(lbl);
+  });
+  svg.appendChild(svgEl("line", { x1: m.l, x2: W - m.r, y1: H - m.b, y2: H - m.b, stroke: "var(--axis)", "stroke-width": 1 }));
+
+  const xt = svgEl("text", { x: (m.l + W - m.r) / 2, y: H - 4, "text-anchor": "middle", class: "axis-title" });
+  xt.textContent = opts.xLabel;
+  svg.appendChild(xt);
+  const yt = svgEl("text", {
+    x: 12, y: (m.t + H - m.b) / 2, "text-anchor": "middle", class: "axis-title",
+    transform: `rotate(-90 12 ${(m.t + H - m.b) / 2})`,
+  });
+  yt.textContent = opts.yLabel;
+  svg.appendChild(yt);
+
+  /* series */
+  for (const s of series) {
+    const pts = s.xs.map((x, i) => [sx(opts.xLog ? Math.log10(x) : x), sy(s.ys[i])]);
+    svg.appendChild(svgEl("path", {
+      d: pathFrom(pts), fill: "none", stroke: s.color, "stroke-width": 2,
+      "stroke-linejoin": "round", "stroke-dasharray": s.dash || "none",
+    }));
+  }
+
+  /* annotation (optimum marker) */
+  if (opts.annot) {
+    const ax = sx(opts.xLog ? Math.log10(opts.annot.x) : opts.annot.x), ay = sy(opts.annot.y);
+    svg.appendChild(svgEl("line", { x1: ax, x2: ax, y1: m.t, y2: H - m.b, stroke: "var(--axis)", "stroke-width": 1, "stroke-dasharray": "3 3" }));
+    svg.appendChild(svgEl("circle", { cx: ax, cy: ay, r: 4, fill: opts.annot.color, stroke: "var(--surface)", "stroke-width": 2 }));
+    const t = svgEl("text", {
+      x: Math.min(ax + 7, W - m.r - 70), y: Math.max(ay - 9, m.t + 10),
+      class: "dlabel", fill: "var(--ink-2)",
+    });
+    t.textContent = opts.annot.text;
+    svg.appendChild(t);
+  }
+
+  /* hover layer: crosshair + tooltip on nearest x of first series */
+  const cross = svgEl("line", { y1: m.t, y2: H - m.b, stroke: "var(--axis)", "stroke-width": 1, visibility: "hidden" });
+  svg.appendChild(cross);
+  const dots = series.map(s => {
+    const c = svgEl("circle", { r: 3.5, fill: s.color, stroke: "var(--surface)", "stroke-width": 1.5, visibility: "hidden" });
+    svg.appendChild(c);
+    return c;
+  });
+  svg.addEventListener("pointermove", ev => {
+    const rect = svg.getBoundingClientRect();
+    const px = (ev.clientX - rect.left) / rect.width * W;
+    if (px < m.l || px > W - m.r) { hideTip(); cross.setAttribute("visibility", "hidden"); dots.forEach(d => d.setAttribute("visibility", "hidden")); return; }
+    const xVal = sx.inv(px);
+    const ref = series[0];
+    let bi = 0, bd = Infinity;
+    for (let i = 0; i < ref.xs.length; i++) {
+      const xv = opts.xLog ? Math.log10(ref.xs[i]) : ref.xs[i];
+      const d = Math.abs(xv - xVal);
+      if (d < bd) { bd = d; bi = i; }
+    }
+    const cx = sx(opts.xLog ? Math.log10(ref.xs[bi]) : ref.xs[bi]);
+    cross.setAttribute("x1", cx); cross.setAttribute("x2", cx);
+    cross.setAttribute("visibility", "visible");
+    let rows = "";
+    series.forEach((s, k) => {
+      dots[k].setAttribute("cx", cx); dots[k].setAttribute("cy", sy(s.ys[bi]));
+      dots[k].setAttribute("visibility", "visible");
+      rows += `<div class="row"><span class="dot" style="background:${s.color}"></span>${s.name}<b>${fmt(s.ys[bi], opts.tipDec ?? 2)} ${opts.yUnit}</b></div>`;
+    });
+    showTip(container, ev.clientX, ev.clientY,
+      `<div class="tip-h">${opts.xName || opts.xLabel}: ${fmt(ref.xs[bi], opts.xTipDec ?? 1)} ${opts.xUnit}</div>` + rows);
+  });
+  svg.addEventListener("pointerleave", () => {
+    hideTip(); cross.setAttribute("visibility", "hidden");
+    dots.forEach(d => d.setAttribute("visibility", "hidden"));
+  });
+
+  container.appendChild(svg);
+}
+
+/* Depth-profile chart: temperature on x, depth (inverted) on y */
+function drawProfile(container, loop) {
+  const W = PLOT_W, H = 560;
+  const m = { l: 46, r: 14, t: 8, b: 34 };
+  container.innerHTML = "";
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, role: "img" });
+
+  const kmMax = loop.z[loop.z.length - 1] / 1000;
+  let tMax = 0;
+  for (const arr of [loop.tg, loop.tDown, loop.tUp]) for (const v of arr) if (v > tMax) tMax = v;
+  const sx = scaleLin(0, tMax * 1.04, m.l, W - m.r);
+  const sy = scaleLin(0, kmMax, m.t, H - m.b);
+
+  for (const v of niceTicks(0, kmMax, 7)) {
+    const y = sy(v);
+    svg.appendChild(svgEl("line", { x1: m.l, x2: W - m.r, y1: y, y2: y, stroke: "var(--grid)", "stroke-width": 1 }));
+    const lbl = svgEl("text", { x: m.l - 7, y: y + 3.5, "text-anchor": "end" });
+    lbl.textContent = fmt(v, 0);
+    svg.appendChild(lbl);
+  }
+  for (const v of niceTicks(0, tMax * 1.04, 6)) {
+    const x = sx(v);
+    const lbl = svgEl("text", { x, y: H - m.b + 16, "text-anchor": "middle" });
+    lbl.textContent = fmt(v, 0);
+    svg.appendChild(lbl);
+  }
+  svg.appendChild(svgEl("line", { x1: m.l, x2: W - m.r, y1: H - m.b, y2: H - m.b, stroke: "var(--axis)", "stroke-width": 1 }));
+  const xt = svgEl("text", { x: (m.l + W - m.r) / 2, y: H - 4, "text-anchor": "middle", class: "axis-title" });
+  xt.textContent = "Temperature (°C)";
+  svg.appendChild(xt);
+  const yt = svgEl("text", {
+    x: 12, y: (m.t + H - m.b) / 2, "text-anchor": "middle", class: "axis-title",
+    transform: `rotate(-90 12 ${(m.t + H - m.b) / 2})`,
+  });
+  yt.textContent = "Depth (km)";
+  svg.appendChild(yt);
+
+  const mk = (temps, color, dash) => svg.appendChild(svgEl("path", {
+    d: pathFrom(loop.z.map((z, i) => [sx(temps[i]), sy(z / 1000)])),
+    fill: "none", stroke: color, "stroke-width": dash ? 1.5 : 2,
+    "stroke-dasharray": dash ? "5 4" : "none", "stroke-linejoin": "round",
+  }));
+  mk(loop.tg, "var(--muted)", true);
+  mk(loop.tDown, "var(--cold)", false);
+  mk(loop.tUp, "var(--hot)", false);
+
+  /* hover: horizontal crosshair by depth */
+  const cross = svgEl("line", { x1: m.l, x2: W - m.r, stroke: "var(--axis)", "stroke-width": 1, visibility: "hidden" });
+  svg.appendChild(cross);
+  const seriesDef = [
+    ["Rock", loop.tg, "var(--muted)"],
+    ["Down leg", loop.tDown, "var(--cold)"],
+    ["Up leg", loop.tUp, "var(--hot)"],
+  ];
+  const dots = seriesDef.map(([, , c]) => {
+    const d = svgEl("circle", { r: 3.5, fill: c, stroke: "var(--surface)", "stroke-width": 1.5, visibility: "hidden" });
+    svg.appendChild(d);
+    return d;
+  });
+  svg.addEventListener("pointermove", ev => {
+    const rect = svg.getBoundingClientRect();
+    const py = (ev.clientY - rect.top) / rect.height * H;
+    if (py < m.t || py > H - m.b) { hideTip(); cross.setAttribute("visibility", "hidden"); dots.forEach(d => d.setAttribute("visibility", "hidden")); return; }
+    const km = sy.inv(py);
+    const n = loop.z.length;
+    const i = Math.min(n - 1, Math.max(0, Math.round(km / kmMax * (n - 1))));
+    const cy = sy(loop.z[i] / 1000);
+    cross.setAttribute("y1", cy); cross.setAttribute("y2", cy);
+    cross.setAttribute("visibility", "visible");
+    let rows = "";
+    seriesDef.forEach(([name, arr, color], k) => {
+      dots[k].setAttribute("cx", sx(arr[i])); dots[k].setAttribute("cy", cy);
+      dots[k].setAttribute("visibility", "visible");
+      rows += `<div class="row"><span class="dot" style="background:${color}"></span>${name}<b>${fmt(arr[i], 1)} °C</b></div>`;
+    });
+    showTip(container, ev.clientX, ev.clientY,
+      `<div class="tip-h">Depth: ${fmt(loop.z[i] / 1000, 2)} km</div>` + rows);
+  });
+  svg.addEventListener("pointerleave", () => {
+    hideTip(); cross.setAttribute("visibility", "hidden");
+    dots.forEach(d => d.setAttribute("visibility", "hidden"));
+  });
+
+  container.appendChild(svg);
+}
+
+/* ================= main update ================= */
+let raf = null;
+function scheduleUpdate() {
+  if (raf) return;
+  raf = requestAnimationFrame(() => { raf = null; update(); });
+}
+
+function update() {
+  const p = params();
+  const years = yearsFromSlider(+els.years.value);
+
+  let mdot;
+  if (els.auto.checked) {
+    mdot = optimizeFlow(p);
+    els.mdot.value = mdot;
+  } else {
+    mdot = +els.mdot.value;
+  }
+
+  /* slider readouts */
+  $("depth-out").textContent = fmt(+els.depth.value, 2) + " mi · " + fmt(p.depth / 1000, 1) + " km";
+  $("grad-out").textContent = els.grad.value + " °C/km";
+  $("bore-out").textContent = els.bore.value + " in";
+  $("mdot-out").textContent = fmt(mdot, 1) + " kg/s" + (els.auto.checked ? " (opt)" : "");
+  $("years-out").textContent = fmt(years, years < 1 ? 1 : 0) + " yr";
+
+  const { loop, plant } = runCase(p, mdot, 400);
+
+  /* tiles */
+  $("v-net").textContent = fmt(plant.wNet / 1e6, 2);
+  $("v-eta").textContent = plant.q > 0
+    ? "cycle efficiency " + fmt(plant.eta * 100, 1) + " %"
+    : "return too cold to raise steam";
+  $("v-ttop").textContent = fmt(loop.tTop, 0);
+  $("v-tbot").textContent = "bottom " + fmt(loop.tBottom, 0) + " °C · rock there " +
+    fmt(FIXED.tSurf + p.grad * p.depth, 0) + " °C";
+  $("v-q").textContent = fmt(plant.q / 1e6, 2);
+  $("v-steam").textContent = plant.mSteam > 0
+    ? fmt(plant.mSteam, 1) + " kg/s steam at " + fmt(plant.pBar, 1) + " bar"
+    : "no steam produced";
+  if (loop.pump === 0) {
+    $("v-pump").textContent = "0";
+    $("v-pump-u").textContent = "kW pump";
+    $("v-circ").innerHTML = '<span class="chip">✓ self-circulating</span>' +
+      '<div class="t-sub">thermosiphon ' + fmt(loop.dpBuoy / 1e5, 0) +
+      ' bar vs friction ' + fmt(loop.dpFric / 1e5, 1) + ' bar</div>';
+  } else {
+    $("v-pump").textContent = fmt(loop.pump / 1e3, 0);
+    $("v-pump-u").textContent = "kW pump";
+    $("v-circ").innerHTML = '<div class="t-sub">friction ' + fmt(loop.dpFric / 1e5, 1) +
+      ' bar exceeds thermosiphon ' + fmt(loop.dpBuoy / 1e5, 1) + ' bar</div>';
+  }
+
+  /* profile chart */
+  $("profile-sub").textContent =
+    "After " + fmt(years, 1) + " years at " + fmt(mdot, 1) + " kg/s — up-leg resistance " +
+    fmt(loop.rUp / loop.rDown, 0) + "× the bare leg.";
+  drawProfile($("plot-profile"), loop);
+
+  /* flow sweep */
+  const xs = [], qTh = [], wNet = [];
+  let optX = 1, optY = -Infinity;
+  for (let mQ = 1; mQ <= 60; mQ += 1) {
+    const r = runCase(p, mQ, 160);
+    xs.push(mQ); qTh.push(r.plant.q / 1e6); wNet.push(r.plant.wNet / 1e6);
+    if (r.plant.wNet / 1e6 > optY) { optY = r.plant.wNet / 1e6; optX = mQ; }
+  }
+  drawChart($("plot-flow"), [
+    { name: "Thermal", color: "var(--hot)", xs, ys: qTh },
+    { name: "Net electric", color: "var(--cold)", xs, ys: wNet },
+  ], {
+    h: 264, xLabel: "Loop flow (kg/s)", xName: "Flow", xUnit: "kg/s",
+    yLabel: "Power (MW)", yUnit: "MW",
+    yZero: true, xTipDec: 0,
+    annot: { x: optX, y: optY, color: "var(--cold)", text: "opt " + fmt(optX, 0) + " kg/s" },
+  });
+
+  /* time sweep */
+  const tx = [], tq = [], tw = [];
+  for (let i = 0; i <= 28; i++) {
+    const yr = 0.1 * Math.pow(300, i / 28);
+    const pt = Object.assign({}, p, { tOp: yr * YEAR });
+    const r = runCase(pt, mdot, 160);
+    tx.push(yr); tq.push(r.plant.q / 1e6); tw.push(r.plant.wNet / 1e6);
+  }
+  /* economics: yearly energy with depletion, then scenario costs & LCOE */
+  const DISC_R = 0.07, LIFE = 30, AVAIL = 0.95;
+  const SCEN = [
+    ["Optimistic — geothermal learning curve", 1.0],
+    ["Base — ultra-deep engineering premium", 3.0],
+    ["Pessimistic — KTB research-well actuals", 14.5],
+  ];
+  const lukawski = d => Math.max(1.72e-7 * d * d + 2.3e-3 * d - 0.62, 0.1) * 1e6 * 1.40;
+  let pvE = 0, discSum = 0;
+  for (let y = 1; y <= LIFE; y++) {
+    const pt = Object.assign({}, p, { tOp: (y - 0.5) * YEAR });
+    const eMwh = Math.max(runCase(pt, mdot, 160).plant.wNet, 0) / 1e6 * 8766 * AVAIL;
+    const df = Math.pow(1 + DISC_R, -y);
+    pvE += eMwh * df; discSum += df;
+  }
+  const netKw = Math.max(plant.wNet, 0) / 1e3;
+  const plantCost = Math.max(1.5e6, 3500 * netKw);
+  const money = x => x >= 1e9 ? "$" + fmt(x / 1e9, 2) + "B" : "$" + fmt(x / 1e6, 0) + "M";
+  let rowsHtml = "";
+  for (const [label, mult] of SCEN) {
+    const well = lukawski(p.depth) * mult;
+    const wells = 2 * well;
+    const pipe = p.depth * 900, conn = 15e6;
+    const direct = wells + pipe + conn + plantCost;
+    const total = direct * 1.12 + 0.25 * (wells + pipe + conn);
+    const om = 0.005 * (wells + pipe + conn) + 0.025 * plantCost + 250e3;
+    const lcoeV = pvE > 0 ? (total + om * discSum) / pvE : Infinity;
+    rowsHtml += `<tr><td>${label}</td><td class="num">${money(well)}</td>` +
+      `<td class="num">${money(total)}</td>` +
+      `<td class="num">${isFinite(lcoeV) ? "$" + fmt(lcoeV, 0) + "/MWh" : "—"}</td></tr>`;
+  }
+  $("econ-rows").innerHTML = rowsHtml;
+  const capMax = Math.max(0, 80 * pvE - (0.025 * plantCost + 250e3) * discSum);
+  $("econ-note").textContent = pvE > 0
+    ? "Break-even against conventional geothermal ($80/MWh) allows " +
+      money(capMax) + " total capital — about " + money(capMax / 2) +
+      " per well. Utility solar is ~$40/MWh."
+    : "No net generation at these settings, so no LCOE.";
+
+  drawChart($("plot-time"), [
+    { name: "Thermal", color: "var(--hot)", xs: tx, ys: tq },
+    { name: "Net electric", color: "var(--cold)", xs: tx, ys: tw },
+  ], {
+    h: 264, xLabel: "Years of operation", xName: "After", xUnit: "yr",
+    yLabel: "Power (MW)", yUnit: "MW",
+    yZero: true, xLog: true, xTicks: [0.1, 0.3, 1, 3, 10, 30], xTipDec: 1,
+  });
+}
+
+for (const k of ["depth", "grad", "bore", "mdot", "years"]) {
+  els[k].addEventListener("input", scheduleUpdate);
+}
+els.ins.addEventListener("change", scheduleUpdate);
+els.auto.addEventListener("change", () => {
+  els.mdot.disabled = els.auto.checked;
+  scheduleUpdate();
+});
+
+update();
+</script>
+</body>
+</html>
